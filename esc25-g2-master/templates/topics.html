@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Topics</title>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px 8px;
+      vertical-align: top;
+    }
+    th {
+      background: #f0f0f0;
+    }
+    code {
+      background: #f8f8f8;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .post-id {
+      font-family: monospace;
+      font-weight: bold;
+    }
+    .reply-to {
+      font-family: monospace;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Topics</h1>
+<a href="/">← Back</a>
+
+<select id="topicSelect">
+  <option value="">Loading topics...</option>
+</select>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Author</th>
+      <th>Post</th>
+      <th>Reply To</th>
+    </tr>
+  </thead>
+  <tbody id="posts">
+    <tr>
+      <td colspan="4">Select a topic to view posts</td>
+    </tr>
+  </tbody>
+</table>
+
+<script>
+let currentTopic = ''
+
+function loadTopics() {
+  const select = document.getElementById('topicSelect')
+  
+  fetch('/topics/list')
+    .then(r => r.json())
+    .then(topics => {
+      select.innerHTML = ''
+      
+      if (topics.length === 0) {
+        select.innerHTML = '<option value="">No topics available</option>'
+        return
+      }
+      
+      topics.forEach(t => {
+        const o = document.createElement('option')
+        o.value = t
+        o.textContent = t
+        select.appendChild(o)
+      })
+      
+      // Load the first topic by default
+      if (topics.length > 0) {
+        currentTopic = topics[0]
+        select.value = currentTopic
+        loadTopic(currentTopic)
+      }
+    })
+    .catch(error => {
+      console.error('Error loading topics:', error)
+      select.innerHTML = '<option value="">Error loading topics</option>'
+    })
+}
+
+function loadTopic(topic) {
+  if (!topic) return
+  
+  currentTopic = topic
+  const tbody = document.getElementById('posts')
+  tbody.innerHTML = '<tr><td colspan="4">Loading posts...</td></tr>'
+  
+  fetch('/topics/posts/' + encodeURIComponent(topic))
+    .then(r => r.json())
+    .then(posts => {
+      tbody.innerHTML = ''
+      
+      if (Object.keys(posts).length === 0) {
+        const tr = document.createElement('tr')
+        tr.innerHTML = '<td colspan="4">No posts in this topic</td>'
+        tbody.appendChild(tr)
+        return
+      }
+      
+      // Sort posts by ID (ascending)
+      Object.entries(posts)
+        .sort((a, b) => Number(a[0]) - Number(b[0]))
+        .forEach(([id, p]) => {
+          const tr = document.createElement('tr')
+          tr.innerHTML = `
+            <td class="post-id">${id}</td>
+            <td>${p.author}</td>
+            <td>${p.post}</td>
+            <td class="reply-to">${p.metadata?.reply_to ?? '-'}</td>
+          `
+          tbody.appendChild(tr)
+        })
+    })
+    .catch(error => {
+      console.error('Error loading posts:', error)
+      tbody.innerHTML = '<tr><td colspan="4">Error loading posts</td></tr>'
+    })
+}
+
+// Event listeners
+document.getElementById('topicSelect').onchange = function() {
+  loadTopic(this.value)
+}
+
+// Load topics on page load
+loadTopics()
+
+// Auto-refresh current topic every 2 seconds
+setInterval(() => {
+  if (currentTopic) {
+    loadTopic(currentTopic)
+  }
+}, 2000)
+</script>
+
+</body>
+</html>

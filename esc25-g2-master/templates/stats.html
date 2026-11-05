@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Server Stats</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: auto; padding: 20px; }
+        img { width: 100%; max-height: 300px; margin-bottom: 30px; border:1px solid #ccc; }
+        #numbers p { margin: 4px 0; }
+        h1, h2 { margin-top: 30px; }
+    </style>
+</head>
+<body>
+
+<h1>Server Statistics</h1>
+<div id="numbers"></div>
+
+<h2>Latency (ms)</h2>
+<img id="latencyChart" src="/plots/latency.png">
+
+<h2>CPU Usage (%)</h2>
+<img id="cpuChart" src="/plots/cpu.png">
+
+<h2>Memory Usage (%)</h2>
+<img id="memChart" src="/plots/mem.png">
+
+<h2>Storage Usage (%)</h2>
+<img id="diskChart" src="/plots/disk.png">
+
+<script>
+async function fetchLatest() {
+    const res = await fetch("/stats/latest");
+    return await res.json();
+}
+
+async function refreshNumbers() {
+    const s = await fetchLatest();
+    if (!s || !s.time) return;
+
+    document.getElementById("numbers").innerHTML = `
+        <p><b>Time:</b> ${new Date(s.time * 1000).toLocaleString()}</p>
+        <p><b>Users:</b> ${s.users}</p>
+        <p><b>Topics:</b> ${s.topics}</p>
+        <p><b>Posts:</b> ${s.posts}</p>
+        <p><b>Operations:</b> ${s.operations}</p>
+        <p><b>Total Memory:</b> ${s.memory.total_mb} MB</p>
+        <p><b>Total Storage:</b> ${s.disk.total_mb} MB</p>
+        <p><b>Used Storage:</b> ${s.disk.used_mb} MB</p>
+    `;
+}
+
+// reload images with cache-busting query string
+function refreshPlots() {
+    const ts = Date.now();
+    document.getElementById("latencyChart").src = `/plots/latency.png?${ts}`;
+    document.getElementById("cpuChart").src = `/plots/cpu.png?${ts}`;
+    document.getElementById("memChart").src = `/plots/mem.png?${ts}`;
+    document.getElementById("diskChart").src = `/plots/disk.png?${ts}`;
+}
+
+// full refresh
+async function refreshAll() {
+    await fetch("/stats/update_plots"); // regenerate plots
+    await refreshNumbers();
+    refreshPlots();
+}
+
+// initial load
+refreshAll();
+
+// refresh every 5 seconds
+setInterval(refreshAll, 2000);
+</script>
+
+</body>
+</html>

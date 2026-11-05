@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Feed</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #f7f8fa;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            margin: 0 0 10px 0;
+        }
+
+        #feed {
+            height: 300px;
+            overflow-y: auto;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+
+        #postForm {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        #postInput {
+            flex: 1;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+
+        #postForm button {
+            padding: 10px 20px;
+            border: none;
+            background: #4f46e5;
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        #postForm button:hover {
+            background: #3730a3;
+        }
+
+        a {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        #topicContainer {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .topic-btn {
+            background: #fff;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            flex: 1 1 150px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .topic-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.5;
+            background: #f0f0f0;
+        }
+
+        .topic-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+        }
+
+        .topic-name {
+            font-weight: 600;
+        }
+
+        .topic-stats {
+            font-size: 0.85rem;
+            color: #555;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+        }
+
+        .modal.hidden {
+            display: none;
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 20px;
+            width: 320px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .modal-actions button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        #confirmTopic {
+            background: #4f46e5;
+            color: #fff;
+        }
+
+        #confirmTopic:hover {
+            background: #3730a3;
+        }
+
+        #cancelTopic {
+            background: #e0e0e0;
+        }
+
+        #cancelTopic:hover {
+            background: #c7c7c7;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .message {
+            margin-bottom: 8px;
+            padding-left: 0;
+        }
+
+        .reply-link {
+            font-size: 0.75rem;
+            color: #555;
+            cursor: pointer;
+            margin-bottom: 2px;
+        }
+        .reply-link:hover {
+            text-decoration: underline;
+        }
+        .message[data-replyto] {
+            padding-left: 20px;
+            border-left: 2px solid #ccc;
+            margin-top: 5px;
+            margin-bottom: 5px;
+        }
+
+        .too-old {
+            font-size: 0.85em;
+            color: #888;
+            font-style: italic;
+            cursor: default;
+        }
+
+        .message.own-post {
+            background-color: #e6f7ff;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Welcome {{ username }}</h1>
+<h2>Current Topic: {{ current_topic }}</h2>
+
+<div id="feed"></div>
+
+<form id="postForm" style="display:flex; gap:10px; align-items:center;">
+    <input type="text" id="postInput" placeholder="Write a message..." required>
+    <button type="submit">Send</button>
+    <button type="button" id="cancelReply" style="display:none; background:#e0e0e0; color:#000; padding:6px 10px; border-radius:6px; cursor:pointer;">Cancel</button>
+</form>
+
+<p><a href="{{ url_for('logout') }}">Logout</a></p>
+
+<div id="topicContainer">
+{% for t in topics %}
+    <button class="topic-btn" data-topic="{{ t.topic }}" {% if not t.subscribed %}disabled{% endif %}>
+        <span class="topic-name">{{ t.topic }}</span><br>
+        <span class="topic-stats" id="stats-{{ t.topic }}">
+            {{ t.posts }} posts
+        </span>
+    </button>
+{% endfor %}
+</div>
+
+<!-- MODAL -->
+<div id="topicModal" class="modal hidden">
+    <div class="modal-content">
+        <h3>Re-enter password</h3>
+        <input type="password" id="topicPassword" placeholder="Password">
+        <div class="modal-actions">
+            <button id="confirmTopic">Confirm</button>
+            <button id="cancelTopic">Cancel</button>
+        </div>
+        <p id="topicError" class="error"></p>
+    </div>
+</div>
+
+<!-- STATS SECTION -->
+<div id="statsSection" style="margin-top: 20px; padding: 15px; background: #fff; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1);">
+    <h3>Server Stats</h3>
+    <p>Avg operation latency: <span id="avgLatency">--</span> ms</p>
+    <p>Ping: <span id="ping">--</span> ms</p>
+</div>
+
+<script>
+let replyTarget = null;
+
+$("#feed").on("click", ".message", function(e) {
+    if ($(e.target).hasClass("reply-link") || $(e.target).closest(".reply-link").length) {
+        return;
+    }
+
+    replyTarget = $(this).data("postid");
+    $("#postInput").attr("placeholder", `Replying to #${replyTarget}`);
+    $("#cancelReply").show();
+});
+
+$("#cancelReply").click(() => {
+    replyTarget = null;
+    $("#postInput").attr("placeholder", "Write a message...");
+    $("#cancelReply").hide();
+});
+
+$("#feed").on("click", ".reply-link", function() {
+    const targetId = $(this).data("target");
+    const targetEl = $(`.message[data-postid='${targetId}']`);
+    if (targetEl.length) {
+        const feed = $("#feed");
+        const offset = targetEl.offset().top - feed.offset().top + feed.scrollTop() - 5;
+        feed.animate({ scrollTop: offset }, 300);
+        targetEl.css("background-color", "#fffae6");
+        setTimeout(() => targetEl.css("background-color", ""), 1200);
+    }
+});
+
+$("#postForm").submit(e => {
+    e.preventDefault();
+    const postText = $("#postInput").val();
+    if (!postText) return;
+
+    $.post("{{ url_for('publish_post') }}", {
+        post: postText,
+        reply_to: replyTarget
+    });
+
+    $("#postInput").val("");
+    $("#postInput").attr("placeholder", "Write a message...");
+    replyTarget = null;
+    $("#cancelReply").hide();
+});
+
+// === Feed refresh ===
+function refreshFeed() {
+    $.get("{{ url_for('ajax_refresh') }}", data => {
+        data.posts.forEach(p => {
+            let replyInfo = "";
+
+            if (p.metadata.reply_to) {
+                const targetEl = $(`#feed .message[data-postid='${p.metadata.reply_to}']`);
+                if (targetEl.length) {
+                    const author = targetEl.find('b').first().text();
+                    const text = targetEl.clone()
+                                         .children('.reply-link')
+                                         .remove()
+                                         .end()
+                                         .text()
+                                         .trim();
+                    const snippet = text.length > 30 ? text.slice(0, 30) + "…" : text;
+                    replyInfo = `<div class="reply-link" data-target="${p.metadata.reply_to}">
+                                    Replying to "${snippet}"
+                                 </div>`;
+                } else {
+                    replyInfo = `<div class="reply-link too-old">
+                                    Replying to an older message (no longer visible)
+                                 </div>`;
+                }
+            }
+
+            const indent = p.metadata.reply_to ? `data-replyto="${p.metadata.reply_to}"` : '';
+            const ownClass = p.author === "{{ username }}" ? "own-post" : "";
+
+            $("#feed").append(
+                `<div class="message ${ownClass}" data-postid="${p.metadata.id}" ${indent}>
+                    ${replyInfo}
+                    <b>${p.author}:</b> ${p.post}
+                </div>`
+            );
+        });
+
+        if (data.posts.length) $("#feed").scrollTop($("#feed")[0].scrollHeight);
+    });
+}
+
+let refreshInterval = 100;
+let refreshTimer = null;
+
+function startRefreshLoop() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(refreshFeed, refreshInterval);
+}
+
+startRefreshLoop();
+
+// === Topic stats update ===
+function updateTopicStats() {
+    fetch("/topics_status")
+        .then(r => r.json())
+        .then(topics => {
+            topics.forEach(t => {
+                const btn = document.querySelector(`.topic-btn[data-topic="${t.topic}"]`);
+                const stats = document.getElementById(`stats-${t.topic}`);
+                if (!btn || !stats) return;
+                btn.disabled = !t.subscribed;
+                stats.textContent = `${t.posts} posts`;  // Only post count
+            });
+        });
+}
+setInterval(updateTopicStats, 2000);
+
+// === Topic modal ===
+let pendingTopic = null;
+document.querySelectorAll(".topic-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+        if (btn.disabled) return;
+        clearInterval(refreshTimer);
+        pendingTopic = btn.dataset.topic;
+        topicPassword.value = "";
+        topicError.textContent = "";
+        topicModal.classList.remove("hidden");
+    });
+});
+
+cancelTopic.onclick = () => {
+    pendingTopic = null;
+    topicModal.classList.add("hidden");
+    refreshTimer = setInterval(refreshFeed, 100);
+};
+
+confirmTopic.onclick = () => {
+    const password = topicPassword.value;
+    if (!password) { topicError.textContent = "Password required"; return; }
+
+    fetch("/change_topic_reauth", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ topic: pendingTopic, password })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.result === "Success") location.reload();
+        else topicError.textContent = data.result;
+    })
+    .catch(() => topicError.textContent = "Network error");
+};
+
+function updateStats() {
+    const start = performance.now();
+
+    fetch("/server_stats")
+        .then(r => r.json())
+        .then(data => {
+            const end = performance.now();
+            const ping = Math.round(end - start);
+
+            document.getElementById("avgLatency").textContent = data.latency.toFixed(2);
+            document.getElementById("ping").textContent = ping;
+
+            // Adaptive refresh
+            if (data.latency > 150 && refreshInterval === 100) {
+                refreshInterval = 500;
+                startRefreshLoop();
+            } 
+            else if (data.latency < 80 && refreshInterval === 500) {
+                refreshInterval = 100;
+                startRefreshLoop();
+            }
+        })
+        .catch(err => {
+            console.error("Failed to fetch stats:", err);
+        });
+}
+
+setInterval(updateStats, 5000);
+updateStats();
+</script>
+
+</body>
+</html>

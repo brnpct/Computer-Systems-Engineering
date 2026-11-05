@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Server Control</title>
+</head>
+<body>
+<h1>Server Control Panel</h1>
+<div id="status">Checking...</div>
+
+<button onclick="post('/server/stop')">Stop Server</button>
+<button onclick="post('/server/reboot')">Reboot Server</button>
+<button onclick="post('/server/fresh')">Fresh Start</button>
+
+
+<h2>Navigation</h2>
+<a href="/users/view">View Users</a>
+<a href="/topics/view">View Topics</a><br>
+<a href="/stats/view">View Stats</a><br>
+
+
+
+<script>
+
+function post(url){
+  fetch(url,{method:'POST'}).then(updateStatus)
+}
+
+
+function updateStatus(){
+  fetch('/server/status')
+    .then(r => r.json())
+    .then(data => {
+      const el = document.getElementById('status')
+      if (data.running){
+        el.textContent = "🟢 Server running"
+        el.style.color = "green"
+      } else {
+        el.textContent = "🔴 Server stopped"
+        el.style.color = "red"
+      }
+    })
+}
+
+// poll every 2 seconds
+setInterval(updateStatus, 2000)
+updateStatus()
+
+
+</script>
+</body>
+</html>
+
+

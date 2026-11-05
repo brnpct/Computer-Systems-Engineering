@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f0f2f5; }
+        h3 { margin-top: 20px; }
+        input { padding: 8px; margin: 5px 0 10px; width: 200px; border-radius: 4px; border: 1px solid #ccc; }
+        button { padding: 8px 12px; border: none; border-radius: 5px; cursor: pointer; background: #4f46e5; color: white; }
+        button:hover { background: #3730a3; }
+        .topic-button { 
+            width: 120px; 
+            padding: 10px; 
+            margin: 5px; 
+            border-radius: 6px; 
+            border: 1px solid #aaa; 
+            cursor: pointer; 
+            background: #e0e0e0; 
+            color: #333; 
+        }
+        .topic-button.disabled { 
+            background: #d3d3d3; 
+            color: #666; 
+            cursor: not-allowed; 
+        }
+        .topic-container { display: flex; flex-wrap: wrap; gap: 20px; }
+        .topic-box { text-align: center; width: 120px; }
+        .subscribe-link { display: block; margin-top: 5px; color: #007BFF; cursor: pointer; text-decoration: underline; }
+        .subscribe-link:hover { color: #0056b3; }
+    </style>
+</head>
+<body>
+
+<form id="loginForm" method="POST">
+    <label>Username:</label>
+    <input type="text" id="username" name="username" required><br>
+
+    <label>Password:</label>
+    <input type="password" id="password" name="password" required><br>
+
+    <h3>Select Topic</h3>
+    <div class="topic-container" id="topicContainer">
+        {% for t in topics %}
+        <div class="topic-box">
+            <button type="button" class="topic-button disabled" data-topic="{{ t.topic }}">
+                {{ t.topic }}<br>({{ t.posts }} posts)
+            </button>
+            <a href="#" class="subscribe-link" data-topic="{{ t.topic }}" style="display:none;">Subscribe</a>
+        </div>
+        {% endfor %}
+    </div>
+</form>
+
+<p>Don't have an account? <a href="{{ url_for('register') }}">Register here</a></p>
+
+<script>
+const usernameInput = document.getElementById("username");
+const passwordInput = document.getElementById("password");
+const topicButtons = document.querySelectorAll(".topic-button");
+const subscribeLinks = document.querySelectorAll(".subscribe-link");
+
+let timeout = null;
+
+usernameInput.addEventListener("input", function() {
+    clearTimeout(timeout);
+    const username = usernameInput.value.trim();
+    if (!username) {
+        topicButtons.forEach(btn => btn.disabled = true);
+        topicButtons.forEach(btn => btn.classList.add("disabled"));
+        subscribeLinks.forEach(link => link.style.display = "none");
+        return;
+    }
+
+    timeout = setTimeout(() => {
+        fetch(`/profile_ajax?username=${encodeURIComponent(username)}`)
+            .then(res => res.json())
+            .then(data => {
+                const subscribedTopics = data.topics || [];
+                topicButtons.forEach((btn, idx) => {
+                    const topicName = btn.dataset.topic;
+                    const link = subscribeLinks[idx];
+
+                    if (subscribedTopics.includes(topicName)) {
+                        btn.disabled = false;
+                        btn.classList.remove("disabled");
+                        link.style.display = "none";
+                    } else {
+                        btn.disabled = true;
+                        btn.classList.add("disabled");
+                        link.style.display = "block";
+                    }
+                });
+            });
+    }, 300);
+});
+
+topicButtons.forEach(btn => {
+    btn.addEventListener("click", function() {
+        if (!btn.disabled) {
+            let hidden = document.createElement("input");
+            hidden.type = "hidden";
+            hidden.name = "topic";
+            hidden.value = btn.dataset.topic;
+            document.getElementById("loginForm").appendChild(hidden);
+            document.getElementById("loginForm").submit();
+        }
+    });
+});
+
+subscribeLinks.forEach((link, idx) => {
+    link.addEventListener("click", function(e) {
+        e.preventDefault();
+        const topicName = link.dataset.topic;
+        const username = usernameInput.value.trim();
+        const password = passwordInput.value;
+        if (!username || !password) { alert("Enter username and password first"); return; }
+
+        fetch(`/subscribe_direct`, {
+            method: "POST",
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, password, topic: topicName})
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.result === "Success") {
+                topicButtons[idx].disabled = false;
+                topicButtons[idx].classList.remove("disabled");
+                link.style.display = "none";
+            } else {
+                alert("Subscription failed: " + data.result);
+            }
+        });
+    });
+});
+</script>
+</body>
+</html>

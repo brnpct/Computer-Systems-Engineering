@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Users</title>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f0f0f0;
+    }
+    code {
+      background: #f8f8f8;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .last-id {
+      font-family: monospace;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Users</h1>
+<a href="/">← Back</a>
+
+<table>
+  <thead>
+    <tr>
+      <th>Username</th>
+      <th>Subscribed Topics</th>
+      <th>Last Viewed IDs</th>
+    </tr>
+  </thead>
+  <tbody id="users"></tbody>
+</table>
+
+<script>
+function loadUsers() {
+  fetch('/users')
+    .then(r => r.json())
+    .then(users => {
+      const tbody = document.getElementById('users')
+      tbody.innerHTML = ''
+      
+      for (const [username, info] of Object.entries(users)) {
+        const tr = document.createElement('tr')
+        
+        // Format subscribed topics
+        let topicsHtml = '-'
+        if (info.topics && Object.keys(info.topics).length > 0) {
+          topicsHtml = Object.keys(info.topics).join(', ')
+        } else if (info.topics_list && info.topics_list.length > 0) {
+          topicsHtml = info.topics_list.join(', ')
+        }
+        
+        // Format last viewed IDs
+        let lastIdsHtml = '-'
+        if (info.topics && Object.keys(info.topics).length > 0) {
+          lastIdsHtml = Object.entries(info.topics)
+            .map(([topic, lastId]) => `${topic}: <span class="last-id">${lastId}</span>`)
+            .join('<br>')
+        }
+        
+        tr.innerHTML = `
+          <td><b>${username}</b></td>
+          <td>${topicsHtml}</td>
+          <td>${lastIdsHtml}</td>
+        `
+        tbody.appendChild(tr)
+      }
+      
+      if (Object.keys(users).length === 0) {
+        const tr = document.createElement('tr')
+        tr.innerHTML = '<td colspan="3">No users registered</td>'
+        tbody.appendChild(tr)
+      }
+    })
+    .catch(error => {
+      console.error('Error loading users:', error)
+      const tbody = document.getElementById('users')
+      tbody.innerHTML = '<tr><td colspan="3">Error loading users</td></tr>'
+    })
+}
+
+// Load users on page load
+loadUsers()
+
+// Auto-refresh every 2 seconds
+setInterval(loadUsers, 2000)
+</script>
+
+</body>
+</html>
